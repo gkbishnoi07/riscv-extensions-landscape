@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RISC-V Extension Sharing Graph</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@300;600&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0e1a;
+    color: #e0e6f0;
+    font-family: 'Space Grotesk', sans-serif;
+    overflow: hidden;
+  }
+  #header {
+    position: fixed; top: 0; left: 0; right: 0;
+    padding: 14px 24px;
+    background: rgba(10,14,26,0.92);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    z-index: 10;
+    display: flex; align-items: center; gap: 16px;
+  }
+  #header h1 {
+    font-size: 15px; font-weight: 600; letter-spacing: 0.05em;
+    color: #7ee8fa;
+  }
+  #header span {
+    font-size: 12px; color: rgba(255,255,255,0.4);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  #stats {
+    margin-left: auto; display: flex; gap: 20px;
+  }
+  .stat {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: rgba(255,255,255,0.5);
+  }
+  .stat b { color: #7ee8fa; font-size: 14px; }
+  #tooltip {
+    position: fixed;
+    background: rgba(10,14,26,0.95);
+    border: 1px solid rgba(126,232,250,0.3);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    max-width: 280px;
+    z-index: 100;
+    line-height: 1.6;
+  }
+  #legend {
+    position: fixed; bottom: 20px; left: 20px;
+    background: rgba(10,14,26,0.88);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px; padding: 12px 16px;
+    font-size: 11px;
+  }
+  #legend h3 { font-size: 10px; color: rgba(255,255,255,0.4);
+    text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  svg { position: fixed; top: 0; left: 0; }
+  line { stroke-opacity: 0.5; }
+  circle { cursor: pointer; transition: r 0.1s; }
+  circle:hover { stroke: white; stroke-width: 1.5px; }
+  text { font-family: 'JetBrains Mono', monospace; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="header">
+  <h1>RISC-V Extension Sharing Graph</h1>
+  <span>Edges = shared instructions between extensions</span>
+  <div id="stats">
+    <div class="stat"><b>114</b><br>extensions</div>
+    <div class="stat"><b>57</b><br>edges</div>
+  </div>
+</div>
+<div id="tooltip"></div>
+<div id="legend">
+  <h3>Extension Groups</h3>
+  <div class="legend-item"><div class="legend-dot" style="background:#00d4ff"></div>Vector / Crypto-Vector</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ffd700"></div>Cryptography (Zk*)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#4a9eff"></div>Z-extensions</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#b44aff"></div>RV64-specific</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ff8c42"></div>RV32-specific</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#8899aa"></div>Base / Other</div>
+</div>
+<svg id="graph"></svg>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script>
+const NODES = [{"id":"rv32_c","group":5},{"id":"rv32_c_f","group":5},{"id":"rv32_d_zfa","group":5},{"id":"rv32_zk","group":2},{"id":"rv32_zkn","group":2},{"id":"rv32_zknd","group":2},{"id":"rv32_zkne","group":2},{"id":"rv32_zknh","group":2},{"id":"rv64_a","group":4},{"id":"rv64_c","group":4},{"id":"rv64_d","group":4},{"id":"rv64_f","group":4},{"id":"rv64_h","group":4},{"id":"rv64_i","group":4},{"id":"rv64_m","group":4},{"id":"rv64_q","group":4},{"id":"rv64_q_zfa","group":4},{"id":"rv64_zacas","group":4},{"id":"rv64_zba","group":4},{"id":"rv64_zbb","group":4},{"id":"rv64_zbkb","group":2},{"id":"rv64_zbp","group":4},{"id":"rv64_zbs","group":4},{"id":"rv64_zcb","group":4},{"id":"rv64_zfh","group":4},{"id":"rv64_zk","group":2},{"id":"rv64_zkn","group":2},{"id":"rv64_zknd","group":2},{"id":"rv64_zkne","group":2},{"id":"rv64_zknh","group":2},{"id":"rv64_zkr","group":2},{"id":"rv64_zks","group":2},{"id":"rv_a","group":6},{"id":"rv_c","group":6},{"id":"rv_c_d","group":6},{"id":"rv_d","group":6},{"id":"rv_d_zfa","group":6},{"id":"rv_d_zfhmin","group":6},{"id":"rv_f","group":6},{"id":"rv_f_zfa","group":6},{"id":"rv_h","group":6},{"id":"rv_i","group":6},{"id":"rv_m","group":6},{"id":"rv_q","group":6},{"id":"rv_q_zfa","group":6},{"id":"rv_q_zfhmin","group":6},{"id":"rv_s","group":6},{"id":"rv_sdext","group":6},{"id":"rv_smrnmi","group":6},{"id":"rv_ssctr","group":6},{"id":"rv_svinval","group":6},{"id":"rv_svinval_h","group":6},{"id":"rv_system","group":6},{"id":"rv_u","group":6},{"id":"rv_v","group":1},{"id":"rv_zabha","group":3},{"id":"rv_zabha_zacas","group":3},{"id":"rv_zacas","group":3},{"id":"rv_zalasr","group":3},{"id":"rv_zawrs","group":3},{"id":"rv_zba","group":3},{"id":"rv_zbb","group":3},{"id":"rv_zbc","group":3},{"id":"rv_zbkb","group":2},{"id":"rv_zbkc","group":2},{"id":"rv_zbkx","group":2},{"id":"rv_zbp","group":3},{"id":"rv_zbs","group":3},{"id":"rv_zcb","group":3},{"id":"rv_zcmop","group":3},{"id":"rv_zcmp","group":3},{"id":"rv_zcmt","group":3},{"id":"rv_zfbfmin","group":3},{"id":"rv_zfh","group":3},{"id":"rv_zfh_zfa","group":3},{"id":"rv_zfhmin","group":3},{"id":"rv_zibi","group":3},{"id":"rv_zicbo","group":3},{"id":"rv_zicfiss","group":3},{"id":"rv_zicond","group":3},{"id":"rv_zicsr","group":3},{"id":"rv_zifencei","group":3},{"id":"rv_zimop","group":3},{"id":"rv_zk","group":2},{"id":"rv_zkn","group":2},{"id":"rv_zknh","group":2},{"id":"rv_zkr","group":2},{"id":"rv_zks","group":2},{"id":"rv_zksed","group":2},{"id":"rv_zksh","group":2},{"id":"rv_zvabd","group":3},{"id":"rv_zvbb","group":1},{"id":"rv_zvbc","group":1},{"id":"rv_zvfbdot32f","group":3},{"id":"rv_zvfbfmin","group":3},{"id":"rv_zvfbfwma","group":3},{"id":"rv_zvfofp4min","group":3},{"id":"rv_zvfofp8min","group":3},{"id":"rv_zvfqbdot8f","group":3},{"id":"rv_zvfqldot8f","group":3},{"id":"rv_zvfwbdot16bf","group":3},{"id":"rv_zvfwldot16bf","group":3},{"id":"rv_zvkg","group":1},{"id":"rv_zvkn","group":1},{"id":"rv_zvkned","group":1},{"id":"rv_zvknha","group":1},{"id":"rv_zvknhb","group":1},{"id":"rv_zvks","group":1},{"id":"rv_zvksed","group":1},{"id":"rv_zvksh","group":1},{"id":"rv_zvqbdot8i","group":3},{"id":"rv_zvqdotq","group":3},{"id":"rv_zvqldot8i","group":3},{"id":"rv_zvzip","group":3}];
+const LINKS = [{"source":"rv32_zk","target":"rv32_zknd","value":2,"shared":["AES32DSI", "AES32DSMI"]},{"source":"rv32_zkn","target":"rv32_zknd","value":2,"shared":["AES32DSI", "AES32DSMI"]},{"source":"rv32_zk","target":"rv32_zkn","value":10,"shared":["AES32DSI", "AES32DSMI", "AES32ESI", "AES32ESMI", "SHA512SIG0H"]},{"source":"rv32_zk","target":"rv32_zkne","value":2,"shared":["AES32ESI", "AES32ESMI"]},{"source":"rv32_zkn","target":"rv32_zkne","value":2,"shared":["AES32ESI", "AES32ESMI"]},{"source":"rv64_zkn","target":"rv64_zknd","value":5,"shared":["AES64DS", "AES64DSM", "AES64IM", "AES64KS1I", "AES64KS2"]},{"source":"rv64_zk","target":"rv64_zknd","value":5,"shared":["AES64DS", "AES64DSM", "AES64IM", "AES64KS1I", "AES64KS2"]},{"source":"rv64_zk","target":"rv64_zkn","value":16,"shared":["AES64DS", "AES64DSM", "AES64ES", "AES64ESM", "AES64IM"]},{"source":"rv64_zkn","target":"rv64_zkne","value":4,"shared":["AES64ES", "AES64ESM", "AES64KS1I", "AES64KS2"]},{"source":"rv64_zk","target":"rv64_zkne","value":4,"shared":["AES64ES", "AES64ESM", "AES64KS1I", "AES64KS2"]},{"source":"rv64_zknd","target":"rv64_zkne","value":2,"shared":["AES64KS1I", "AES64KS2"]},{"source":"rv_zbb","target":"rv_zkn","value":5,"shared":["ANDN", "ORN", "ROL", "ROR", "XNOR"]},{"source":"rv_zbb","target":"rv_zks","value":5,"shared":["ANDN", "ORN", "ROL", "ROR", "XNOR"]},{"source":"rv_zbb","target":"rv_zk","value":5,"shared":["ANDN", "ORN", "ROL", "ROR", "XNOR"]},{"source":"rv_zbb","target":"rv_zbkb","value":5,"shared":["ANDN", "ORN", "ROL", "ROR", "XNOR"]},{"source":"rv_zkn","target":"rv_zks","value":11,"shared":["ANDN", "CLMUL", "CLMULH", "ORN", "PACK"]},{"source":"rv_zk","target":"rv_zkn","value":15,"shared":["ANDN", "CLMUL", "CLMULH", "ORN", "PACK"]},{"source":"rv_zbkb","target":"rv_zkn","value":7,"shared":["ANDN", "ORN", "PACK", "PACKH", "ROL"]},{"source":"rv_zk","target":"rv_zks","value":11,"shared":["ANDN", "CLMUL", "CLMULH", "ORN", "PACK"]},{"source":"rv_zbkb","target":"rv_zks","value":7,"shared":["ANDN", "ORN", "PACK", "PACKH", "ROL"]},{"source":"rv_zbkb","target":"rv_zk","value":7,"shared":["ANDN", "ORN", "PACK", "PACKH", "ROL"]},{"source":"rv_zbc","target":"rv_zkn","value":2,"shared":["CLMUL", "CLMULH"]},{"source":"rv_zbc","target":"rv_zks","value":2,"shared":["CLMUL", "CLMULH"]},{"source":"rv_zbc","target":"rv_zk","value":2,"shared":["CLMUL", "CLMULH"]},{"source":"rv_zbc","target":"rv_zbkc","value":2,"shared":["CLMUL", "CLMULH"]},{"source":"rv_zbkc","target":"rv_zkn","value":2,"shared":["CLMUL", "CLMULH"]},{"source":"rv_zbkc","target":"rv_zks","value":2,"shared":["CLMUL", "CLMULH"]},{"source":"rv_zbkc","target":"rv_zk","value":2,"shared":["CLMUL", "CLMULH"]},{"source":"rv64_zbkb","target":"rv64_zks","value":5,"shared":["PACKW", "ROLW", "RORI", "RORIW", "RORW"]},{"source":"rv64_zbkb","target":"rv64_zkn","value":5,"shared":["PACKW", "ROLW", "RORI", "RORIW", "RORW"]},{"source":"rv64_zbkb","target":"rv64_zk","value":5,"shared":["PACKW", "ROLW", "RORI", "RORIW", "RORW"]},{"source":"rv64_zkn","target":"rv64_zks","value":5,"shared":["PACKW", "ROLW", "RORI", "RORIW", "RORW"]},{"source":"rv64_zk","target":"rv64_zks","value":5,"shared":["PACKW", "ROLW", "RORI", "RORIW", "RORW"]},{"source":"rv64_zbb","target":"rv64_zks","value":4,"shared":["ROLW", "RORI", "RORIW", "RORW"]},{"source":"rv64_zbb","target":"rv64_zkn","value":4,"shared":["ROLW", "RORI", "RORIW", "RORW"]},{"source":"rv64_zbb","target":"rv64_zk","value":4,"shared":["ROLW", "RORI", "RORIW", "RORW"]},{"source":"rv64_zbb","target":"rv64_zbkb","value":4,"shared":["ROLW", "RORI", "RORIW", "RORW"]},{"source":"rv_zkn","target":"rv_zknh","value":4,"shared":["SHA256SIG0", "SHA256SIG1", "SHA256SUM0", "SHA256SUM1"]},{"source":"rv_zk","target":"rv_zknh","value":4,"shared":["SHA256SIG0", "SHA256SIG1", "SHA256SUM0", "SHA256SUM1"]},{"source":"rv64_zkn","target":"rv64_zknh","value":4,"shared":["SHA512SIG0", "SHA512SIG1", "SHA512SUM0", "SHA512SUM1"]},{"source":"rv64_zk","target":"rv64_zknh","value":4,"shared":["SHA512SIG0", "SHA512SIG1", "SHA512SUM0", "SHA512SUM1"]},{"source":"rv32_zk","target":"rv32_zknh","value":6,"shared":["SHA512SIG0H", "SHA512SIG0L", "SHA512SIG1H", "SHA512SIG1L", "SHA512SUM0R"]},{"source":"rv32_zkn","target":"rv32_zknh","value":6,"shared":["SHA512SIG0H", "SHA512SIG0L", "SHA512SIG1H", "SHA512SIG1L", "SHA512SUM0R"]},{"source":"rv_zks","target":"rv_zksh","value":2,"shared":["SM3P0", "SM3P1"]},{"source":"rv_zks","target":"rv_zksed","value":2,"shared":["SM4ED", "SM4KS"]},{"source":"rv_zvkn","target":"rv_zvkned","value":11,"shared":["VAESDF_VS", "VAESDF_VV", "VAESDM_VS", "VAESDM_VV", "VAESEF_VS"]},{"source":"rv_zvbb","target":"rv_zvks","value":9,"shared":["VANDN_VV", "VANDN_VX", "VBREV8_V", "VREV8_V", "VROL_VV"]},{"source":"rv_zvbb","target":"rv_zvkn","value":9,"shared":["VANDN_VV", "VANDN_VX", "VBREV8_V", "VREV8_V", "VROL_VV"]},{"source":"rv_zvkn","target":"rv_zvks","value":9,"shared":["VANDN_VV", "VANDN_VX", "VBREV8_V", "VREV8_V", "VROL_VV"]},{"source":"rv_zvknha","target":"rv_zvknhb","value":3,"shared":["VSHA2CH_VV", "VSHA2CL_VV", "VSHA2MS_VV"]},{"source":"rv_zvkn","target":"rv_zvknha","value":3,"shared":["VSHA2CH_VV", "VSHA2CL_VV", "VSHA2MS_VV"]},{"source":"rv_zvkn","target":"rv_zvknhb","value":3,"shared":["VSHA2CH_VV", "VSHA2CL_VV", "VSHA2MS_VV"]},{"source":"rv_zvks","target":"rv_zvksh","value":2,"shared":["VSM3C_VI", "VSM3ME_VV"]},{"source":"rv_zvks","target":"rv_zvksed","value":3,"shared":["VSM4K_VI", "VSM4R_VS", "VSM4R_VV"]},{"source":"rv_zbkx","target":"rv_zkn","value":2,"shared":["XPERM4", "XPERM8"]},{"source":"rv_zbkx","target":"rv_zks","value":2,"shared":["XPERM4", "XPERM8"]},{"source":"rv_zbkx","target":"rv_zk","value":2,"shared":["XPERM4", "XPERM8"]}];
+
+const COLORS = [null,
+  "#00d4ff", "#ffd700", "#4a9eff",
+  "#b44aff", "#ff8c42", "#8899aa"
+];
+
+const W = window.innerWidth, H = window.innerHeight;
+const svg = d3.select("#graph").attr("width", W).attr("height", H);
+const g = svg.append("g");
+
+svg.call(d3.zoom().scaleExtent([0.1, 6]).on("zoom", e => g.attr("transform", e.transform)));
+
+const sim = d3.forceSimulation(NODES)
+  .force("link", d3.forceLink(LINKS).id(d => d.id).distance(d => 80 - d.value * 2).strength(0.4))
+  .force("charge", d3.forceManyBody().strength(-180))
+  .force("center", d3.forceCenter(W / 2, H / 2))
+  .force("collision", d3.forceCollide(18));
+
+const link = g.append("g").selectAll("line")
+  .data(LINKS).join("line")
+  .attr("stroke", d => d.value > 5 ? "#ffd700" : d.value > 2 ? "#4a9eff44" : "#ffffff18")
+  .attr("stroke-width", d => Math.min(1 + d.value * 0.3, 4));
+
+const node = g.append("g").selectAll("g")
+  .data(NODES).join("g")
+  .call(d3.drag()
+    .on("start", (e,d) => { if(!e.active) sim.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; })
+    .on("drag",  (e,d) => { d.fx=e.x; d.fy=e.y; })
+    .on("end",   (e,d) => { if(!e.active) sim.alphaTarget(0); d.fx=null; d.fy=null; }));
+
+node.append("circle")
+  .attr("r", 7)
+  .attr("fill", d => COLORS[d.group])
+  .attr("fill-opacity", 0.85);
+
+node.append("text")
+  .attr("dx", 10).attr("dy", 4)
+  .attr("fill", "rgba(255,255,255,0.55)")
+  .attr("font-size", "9px")
+  .text(d => d.id.replace(/^rv(?:32|64)?_/, ''));
+
+const tip = document.getElementById("tooltip");
+
+node
+  .on("mouseover", (e, d) => {
+    const connected = LINKS
+      .filter(l => l.source.id === d.id || l.target.id === d.id)
+      .map(l => {
+        const other = l.source.id === d.id ? l.target.id : l.source.id;
+        return `<div style="color:#aaa">${other}: <span style="color:#7ee8fa">${l.value} shared</span></div>`;
+      }).join("");
+    tip.innerHTML = `<b style="color:#7ee8fa">${d.id}</b><br><br>${connected || "No connections"}`;
+    tip.style.opacity = 1;
+  })
+  .on("mousemove", e => {
+    tip.style.left = (e.clientX + 14) + "px";
+    tip.style.top  = (e.clientY - 10) + "px";
+  })
+  .on("mouseout", () => tip.style.opacity = 0);
+
+sim.on("tick", () => {
+  link
+    .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+    .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+  node.attr("transform", d => `translate(${d.x},${d.y})`);
+});
+</script>
+</body>
+</html>
