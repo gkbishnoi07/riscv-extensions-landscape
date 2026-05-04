@@ -61,6 +61,11 @@ This creates graph.html in the current directory.
 ```bash
 python3 test_solution.py
 ```
+### Extension Sharing Graph (Interactive)
+
+![Extension sharing graph showing crypto and vector extension clusters with tooltip displaying shared instruction counts](image.png)
+
+The graph visualizes which extensions share instructions. Nodes are extensions, edges connect extensions that have at least one instruction in common. Thicker gold lines mean more shared instructions. You can zoom, drag, and hover over nodes to see connection details.
 
 ## Exact Output
 
