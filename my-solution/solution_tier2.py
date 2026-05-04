@@ -8,11 +8,14 @@ import os
 import re
 import sys
 import subprocess
+from pathlib import Path
 from collections import defaultdict
 
-INSTR_DICT_PATH = "../src/instr_dict.json"
 MANUAL_REPO_URL = "https://github.com/riscv/riscv-isa-manual"
-MANUAL_CLONE_DIR = "../riscv-isa-manual"
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+INSTR_DICT_PATH = REPO_ROOT / "src" / "instr_dict.json"
+MANUAL_CLONE_DIR = REPO_ROOT / "riscv-isa-manual"
 
 
 def load_json_extensions(filepath):
@@ -36,14 +39,15 @@ def load_json_extensions(filepath):
 
 def clone_manual(clone_dir, repo_url):
     """Clone the ISA manual repo if not already present."""
+    clone_dir = Path(clone_dir)
     print(f"\n[2] Checking ISA manual repo at: {clone_dir}")
-    if os.path.isdir(clone_dir):
+    if clone_dir.is_dir():
         print("    Repo already exists, skipping clone.")
         return
 
     print(f"    Cloning from {repo_url} ...")
     result = subprocess.run(
-        ["git", "clone", "--depth=1", repo_url, clone_dir],
+        ["git", "clone", "--depth=1", repo_url, str(clone_dir)],
         capture_output=True,
         text=True,
     )
@@ -212,8 +216,8 @@ def print_report(matched, json_only, manual_only, json_norm, manual_norm):
 
 
 def main():
-    instr_path = sys.argv[1] if len(sys.argv) > 1 else INSTR_DICT_PATH
-    manual_dir = sys.argv[2] if len(sys.argv) > 2 else MANUAL_CLONE_DIR
+    instr_path = sys.argv[1] if len(sys.argv) > 1 else str(INSTR_DICT_PATH)
+    manual_dir = sys.argv[2] if len(sys.argv) > 2 else str(MANUAL_CLONE_DIR)
 
     json_tags = load_json_extensions(instr_path)
     clone_manual(manual_dir, MANUAL_REPO_URL)

@@ -5,13 +5,26 @@ Tier 3 - Extension Sharing Graph
 
 import json
 import sys
+from pathlib import Path
 from collections import defaultdict
+
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+DEFAULT_INSTR_DICT = REPO_ROOT / "src" / "instr_dict.json"
 
 
 def build_graph(filepath):
     """Build extension-sharing graph from instr_dict.json."""
-    with open(filepath) as f:
-        data = json.load(f)
+    try:
+        with open(filepath) as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        print(f"ERROR: File not found -> {filepath}")
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        print(f"ERROR: Invalid JSON -> {e}")
+        sys.exit(1)
 
     edges = defaultdict(set)
     nodes = set()
@@ -256,8 +269,8 @@ sim.on("tick", () => {{
 
 
 def main():
-    filepath = sys.argv[1] if len(sys.argv) > 1 else "../src/instr_dict.json"
-    output = sys.argv[2] if len(sys.argv) > 2 else "graph.html"
+    filepath = sys.argv[1] if len(sys.argv) > 1 else str(DEFAULT_INSTR_DICT)
+    output = sys.argv[2] if len(sys.argv) > 2 else str(SCRIPT_DIR / "graph.html")
 
     print(f"\nBuilding extension sharing graph from: {filepath}")
     nodes, edges = build_graph(filepath)

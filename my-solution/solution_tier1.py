@@ -5,7 +5,13 @@ Tier 1 - Instruction Set Parsing
 
 import json
 import sys
+from pathlib import Path
 from collections import defaultdict
+
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+DEFAULT_INSTR_DICT = REPO_ROOT / "src" / "instr_dict.json"
 
 
 def load_instr_dict(filepath):
@@ -84,7 +90,7 @@ def print_multi_extension_instructions(multi):
 
 
 def main():
-    filepath = "../src/instr_dict.json"
+    filepath = str(DEFAULT_INSTR_DICT)
 
     if len(sys.argv) > 1:
         filepath = sys.argv[1]

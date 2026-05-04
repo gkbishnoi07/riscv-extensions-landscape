@@ -1,60 +1,27 @@
 """
 RISC-V Mentorship Coding Challenge
 Tier 3 - Unit Tests
+
+Tests import directly from the solution modules to validate the actual
+implementation rather than duplicated logic.
 """
 
 import json
 import os
-import re
 import sys
 import unittest
-from collections import defaultdict
+from pathlib import Path
 
 
-# Tier 1 logic (mirrors solution)
-def group_by_extension(instr_dict):
-    ext_map = defaultdict(list)
-    multi = []
-    for mnemonic, data in instr_dict.items():
-        extensions = data.get("extension", [])
-        if len(extensions) > 1:
-            multi.append((mnemonic.upper(), extensions))
-        for ext in extensions:
-            ext_map[ext].append((mnemonic.upper(), data))
-    return ext_map, multi
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
 
+# Ensure the solution directory is on the import path
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
 
-# Tier 2 logic (mirrors solution)
-def normalize(name):
-    name = name.strip().lower()
-    name = re.sub(r"\s+extension$", "", name)
-    name = re.sub(r"^extension\s+", "", name)
-    name = re.sub(r"^rv(?:32|64|128)?_", "", name)
-    base_isa = re.match(r"^rv(?:32|64|128)([a-z]+)$", name)
-    if base_isa:
-        name = base_isa.group(1)
-    name = name.strip('"\'`')
-    return name.strip()
-
-
-def build_normalized_map(raw_set):
-    result = defaultdict(set)
-    for raw in raw_set:
-        key = normalize(raw)
-        if key:
-            result[key].add(raw)
-    return result
-
-
-def cross_reference(json_tags, manual_tags):
-    json_norm = build_normalized_map(json_tags)
-    manual_norm = build_normalized_map(manual_tags)
-    json_keys = set(json_norm.keys())
-    manual_keys = set(manual_norm.keys())
-    matched = json_keys & manual_keys
-    json_only = json_keys - manual_keys
-    manual_only = manual_keys - json_keys
-    return matched, json_only, manual_only, json_norm, manual_norm
+from solution_tier1 import group_by_extension
+from solution_tier2 import normalize, build_normalized_map, cross_reference
 
 
 class TestGroupByExtension(unittest.TestCase):
@@ -223,7 +190,7 @@ class TestCrossReference(unittest.TestCase):
 
 
 class TestRealData(unittest.TestCase):
-    INSTR_DICT = "../src/instr_dict.json"
+    INSTR_DICT = REPO_ROOT / "src" / "instr_dict.json"
 
     def setUp(self):
         if not os.path.exists(self.INSTR_DICT):
